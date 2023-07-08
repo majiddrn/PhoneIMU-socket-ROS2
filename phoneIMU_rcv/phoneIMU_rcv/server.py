@@ -23,21 +23,21 @@ class Server(Node):
         # first gyroscope, second is accelerator and the third is orientation data
         phone_imu_data = Imu()
 
-        phone_imu_data.angular_velocity.x = decoded_array['imu_data'][0][0]
-        phone_imu_data.angular_velocity.y = decoded_array['imu_data'][0][1]
-        phone_imu_data.angular_velocity.z = decoded_array['imu_data'][0][2]
+        phone_imu_data.angular_velocity.x = float(decoded_array['imu_data'][0][0])
+        phone_imu_data.angular_velocity.y = float(decoded_array['imu_data'][0][1])
+        phone_imu_data.angular_velocity.z = float(decoded_array['imu_data'][0][2])
         
-        phone_imu_data.linear_acceleration.x = decoded_array['imu_data'][1][0]
-        phone_imu_data.linear_acceleration.y = decoded_array['imu_data'][1][1]
-        phone_imu_data.linear_acceleration.z = decoded_array['imu_data'][1][2]
+        phone_imu_data.linear_acceleration.x = float(decoded_array['imu_data'][1][0])
+        phone_imu_data.linear_acceleration.y = float(decoded_array['imu_data'][1][1])
+        phone_imu_data.linear_acceleration.z = float(decoded_array['imu_data'][1][2])
 
-        phone_imu_data.orientation.x = decoded_array['imu_data'][2][0]
-        phone_imu_data.orientation.y = decoded_array['imu_data'][2][1]
-        phone_imu_data.orientation.z = decoded_array['imu_data'][2][2]
+        phone_imu_data.orientation.x = float(decoded_array['imu_data'][2][0])
+        phone_imu_data.orientation.y = float(decoded_array['imu_data'][2][1])
+        phone_imu_data.orientation.z = float(decoded_array['imu_data'][2][2])
 
-        phone_imu_data.angular_velocity_covariance = [-1, 0, 0, 0, 0, 0, 0, 0, 0]
-        phone_imu_data.orientation_covariance = [-1, 0, 0, 0, 0, 0, 0, 0, 0]
-        phone_imu_data.linear_acceleration_covariance = [-1, 0, 0, 0, 0, 0, 0, 0, 0]
+        phone_imu_data.angular_velocity_covariance = [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        phone_imu_data.orientation_covariance = [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        phone_imu_data.linear_acceleration_covariance = [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
         self.publisher_imu.publish(phone_imu_data)
 
@@ -52,31 +52,26 @@ class Server(Node):
             client_thread.start()
             self.client_threads = client_thread
 
-    def receive_lines(self, socket):
-        received_data = ""
-        input_stream = socket.makefile('rb')
+    def receive_lines(self, sock):
+        buffer = ""
         while True:
-            try:
-                received_data = input_stream.read(2)
-                if not received_data:
-                    break
-                received_string = received_data.decode('utf-8')
-                print(received_string)
-            except Exception as e:
-                raise RuntimeError(e)
+            data = sock.recv(1024).decode()  # Receive data from the socket
+            if not data:
+                break
+            buffer += data
+            while '\n' in buffer:
+                line, buffer = buffer.split('\n', 1)
+                yield line
 
     def handle_client(self, client_socket):
-
         input_stream = client_socket.makefile('rb')
         self.get_logger().info(f'here1')
+    
+        for line in self.receive_lines(client_socket):
+            self.publish(line)
+            self.get_logger().info(f'{line}')
+            # print(line)
 
-        while True:
-             for line in self.receive_lines(client_socket):
-                self.get_logger().info(f'{line}')
-
-
-        self.server_socket.close()
-        self.get_logger().info('Client disconnected')
 
 def main(args=None):
     rclpy.init(args=args)
