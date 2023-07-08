@@ -2,18 +2,46 @@ import rclpy
 from rclpy.node import Node
 import socket
 import threading
+import json
 
 from sensor_msgs.msg import Imu
 
 class Server(Node):
     def __init__(self):
         super().__init__('server')
+        self.publisher_imu = self.create_publisher(Imu, 'phone_imu', 10)
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((socket.gethostname(), 9999))
         self.server_socket.listen(1)
         self.client_thread = None
         self.get_logger().info('Socket server started and listening...')
         self.start_server()
+
+    def publish(self, json_arr):
+        decoded_array = json.loads(json_arr)
+
+        # first gyroscope, second is accelerator and the third is orientation data
+        phone_imu_data = Imu()
+
+        phone_imu_data.angular_velocity.x = decoded_array['imu_data'][0][0]
+        phone_imu_data.angular_velocity.y = decoded_array['imu_data'][0][1]
+        phone_imu_data.angular_velocity.z = decoded_array['imu_data'][0][2]
+        
+        phone_imu_data.linear_acceleration.x = decoded_array['imu_data'][1][0]
+        phone_imu_data.linear_acceleration.y = decoded_array['imu_data'][1][1]
+        phone_imu_data.linear_acceleration.z = decoded_array['imu_data'][1][2]
+
+        phone_imu_data.orientation.x = decoded_array['imu_data'][2][0]
+        phone_imu_data.orientation.y = decoded_array['imu_data'][2][1]
+        phone_imu_data.orientation.z = decoded_array['imu_data'][2][2]
+
+        phone_imu_data.angular_velocity_covariance = [-1, 0, 0, 0, 0, 0, 0, 0, 0]
+        phone_imu_data.orientation_covariance = [-1, 0, 0, 0, 0, 0, 0, 0, 0]
+        phone_imu_data.linear_acceleration_covariance = [-1, 0, 0, 0, 0, 0, 0, 0, 0]
+
+        self.publisher_imu.publish(phone_imu_data)
+
+
 
     def start_server(self):
         self.get_logger().info('waiting')
